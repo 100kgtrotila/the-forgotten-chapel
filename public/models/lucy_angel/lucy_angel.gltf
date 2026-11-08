@@ -1,0 +1,107 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "Three.js PLYLoader; local lossless glTF conversion",
+    "copyright": "Lucy scan: Stanford University Computer Graphics Laboratory. Source: Stanford 3D Scanning Repository. Free redistribution with credit; commercial use requires permission."
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Lucy church angel",
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Lucy 100k",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Weathered limestone",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.55,
+          0.53,
+          0.47,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.96
+      }
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "lucy_angel.bin",
+      "byteLength": 1800048
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 600024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 600024,
+      "byteLength": 600024,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 1200048,
+      "byteLength": 600000,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 50002,
+      "type": "VEC3",
+      "min": [
+        -0.29113486409187317,
+        0,
+        -0.16709773242473602
+      ],
+      "max": [
+        0.29113486409187317,
+        1,
+        0.16709773242473602
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 50002,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 300000,
+      "type": "SCALAR"
+    }
+  ]
+}
