@@ -10,6 +10,7 @@ import { RitualController, bindRitualInteraction } from '../interaction/RitualCo
 import type { RitualState } from '../interaction/RitualController'
 import { RenderingPipeline } from './RenderingPipeline'
 import type { Quality } from './RenderingPipeline'
+import { FrameClock } from './FrameClock.ts'
 
 interface RitualUi {
   activateButton: HTMLButtonElement
@@ -33,6 +34,7 @@ export class App {
   private readonly pipeline: RenderingPipeline
   private quality: Quality = 'high'
   private readonly uiEvents = new AbortController()
+  private readonly frameClock = new FrameClock(document, this.uiEvents.signal)
   private readonly diagnostics = new URLSearchParams(location.search).get('diagnostics') === '1'
   private diagnosticFrames = 0
   private diagnosticDuration = 0
@@ -43,7 +45,6 @@ export class App {
   private readonly assetLoading = new AbortController()
   private framingDistance: number | null = null
   private elapsed = 0
-  private previousFrameTime: number | null = null
 
   constructor(private readonly container: HTMLElement, private readonly ritualUi: RitualUi) {
     this.scene = new THREE.Scene()
@@ -188,12 +189,13 @@ export class App {
   }
 
   private readonly animate = (time: number): void => {
-    const delta = this.previousFrameTime === null ? 0 : Math.min((time - this.previousFrameTime) / 1000, 0.05)
-    this.previousFrameTime = time
+    this.frameClock.update(time)
+    if (document.hidden) return
+    const delta = this.frameClock.visualDelta
     this.elapsed += delta
 
     if (this.ritual) {
-      this.ritual.update(delta, !this.reducedMotion.matches)
+      this.ritual.update(delta, !this.reducedMotion.matches, this.frameClock.physicsDelta)
     } else {
       if (!this.reducedMotion.matches) this.artifact.rotation.y += delta * 0.32
       this.artifact.position.y = this.artifactBaseHeight

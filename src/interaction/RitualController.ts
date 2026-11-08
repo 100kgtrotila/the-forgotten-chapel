@@ -72,14 +72,14 @@ export class RitualController {
     return true
   }
 
-  update(delta: number, motion = true): void {
-    if (this.disposed || !Number.isFinite(delta) || delta < 0) return
-    this.elapsed += delta
-    if (this.currentState !== 'idle') this.transitionTime += delta
+  update(visualDelta: number, motion = true, physicsDelta = visualDelta): void {
+    if (this.disposed || !Number.isFinite(visualDelta) || visualDelta < 0) return
+    this.elapsed += visualDelta
+    if (this.currentState !== 'idle') this.transitionTime += visualDelta
     const progress = Math.min(this.transitionTime / ACTIVATION_DURATION, 1)
     const smooth = progress * progress * (3 - 2 * progress)
     const charge = this.currentState === 'activating' ? smooth : 0
-    if (motion) this.orbitAngle += delta * (0.1 + charge * 3.8)
+    if (motion) this.orbitAngle += visualDelta * (0.1 + charge * 3.8)
 
     if (this.currentState !== 'released') {
       for (let index = 0; index < this.stones.length; index++) {
@@ -95,6 +95,7 @@ export class RitualController {
       }
     }
 
+    let releasedThisFrame = false
     if (this.currentState === 'activating' && this.transitionTime >= ACTIVATION_DURATION) {
       for (const [index, stone] of this.stones.entries()) {
         const x = stone.mesh.position.x - this.basePosition.x
@@ -104,17 +105,22 @@ export class RitualController {
       }
       this.options.physics.release(this.stones)
       this.currentState = 'released'
-      this.transitionTime = 0
+      this.transitionTime -= ACTIVATION_DURATION
+      releasedThisFrame = true
       this.options.onStateChange?.(this.currentState)
     }
-    if (this.currentState === 'released') this.options.physics.step(delta)
+    if (this.currentState === 'released') {
+      // Only the part of this frame after release belongs to the simulation.
+      this.options.physics.step(releasedThisFrame ? Math.min(physicsDelta, this.transitionTime) : physicsDelta)
+    }
 
     const activation = this.currentState === 'activating' ? smooth
       : this.currentState === 'released' ? 0.18 + 0.82 * Math.exp(-this.transitionTime * 2) : 0
     const pulse = this.currentState === 'activating' ? Math.sin(progress * Math.PI) : 0
-    if (motion) this.effectTime += delta * (1 + activation * 3)
+    if (motion) this.effectTime += visualDelta * (1 + activation * 3)
     this.options.seal.update(motion ? this.effectTime : 0, 0.85 + activation * 3, activation)
-    this.effects.update(this.effectTime, charge, this.currentState === 'released' ? this.transitionTime : -1, motion)
+    this.effects.update(this.effectTime, this.currentState === 'activating' ? charge : 0,
+      this.currentState === 'released' ? this.transitionTime : -1, motion)
 
     const artifact = this.options.artifact
     artifact.position.copy(this.basePosition)
