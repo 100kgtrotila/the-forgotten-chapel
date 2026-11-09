@@ -132,3 +132,39 @@ test('empty models retain the fallback instead of introducing invalid transforms
   assert.equal(slot.fallback.visible, true)
   assert.equal(slot.container.children.length, 1)
 })
+
+test('model outcomes distinguish successful, failed and intentionally procedural slots', async (context) => {
+  context.mock.method(GLTFLoader.prototype, 'loadAsync', async (url: string) => {
+    if (url.includes('missing')) throw new Error('Missing model')
+    return { scene: sourceModel() }
+  })
+  context.mock.method(console, 'warn', () => {})
+  const slots = [modelSlot('models/angel.glb'), modelSlot('models/missing.glb'), modelSlot(null)]
+  const outcome = await loadModelSlots(slots, new AbortController().signal)
+  assert.deepEqual(outcome, {
+    loadedModelIds: ['model-slot-1'], failedModelIds: ['model-slot-2'],
+    skippedOptionalSlots: ['model-slot-3'], missingResources: ['models/missing.glb'],
+  })
+})
+
+test('abort during a mixed batch does not dispose resources already owned by the scene twice', async (context) => {
+  let finish: (value: { scene: THREE.Group }) => void = () => { throw new Error('Not started') }
+  const pending = new Promise<{ scene: THREE.Group }>((resolve) => { finish = resolve })
+  const attached = sourceModel()
+  const late = sourceModel()
+  context.mock.method(GLTFLoader.prototype, 'loadAsync', async (url: string) => {
+    return url.includes('late') ? pending : { scene: attached }
+  })
+  const slot = modelSlot('models/attached.glb')
+  const controller = new AbortController()
+  const mesh = attached.children[0]
+  assert.ok(mesh instanceof THREE.Mesh)
+  const dispose = context.mock.method(mesh.geometry, 'dispose')
+  const loading = loadModelSlots([slot, modelSlot('models/late.glb')], controller.signal)
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  controller.abort()
+  disposeObjectResources(slot.container)
+  finish({ scene: late })
+  await loading
+  assert.equal(dispose.mock.callCount(), 1)
+})

@@ -2,16 +2,26 @@
 
 The project is prepared for static Vite hosting. No deployment has been published or verified. There is no server component, required environment secret or need for vercel.json.
 
-## Prepare and push
+## Prepare the existing repository
 
-1. Review the included CC0 glTF models and credits in ASSETS.md. The imported-model requirement is implemented; preserve each model directory and its relative dependencies when committing.
+The public repository already exists at https://github.com/100kgtrotila/the-forgotten-chapel and has been pushed. GitHub repository publication provides access to the source. The interactive website still needs its own static deployment and HTTPS smoke test.
+
+### Asset permissions
+
+- Lucy angel uses the Stanford 3D Scanning Repository terms. Preserve the Stanford University Computer Graphics Laboratory source acknowledgement and the bundled `public/models/lucy_angel/LICENSE.md`. Research use and free redistribution with acknowledgement are permitted under the source terms. Commercial use requires Stanford's permission. See https://graphics.stanford.edu/data/3Dscanrep/.
+- Large Iron Gate by Josh Dean is supplied by Poly Haven under CC0. Preserve its asset credits. See https://polyhaven.com/a/large_iron_gate and https://polyhaven.com/license.
+- The stone textures are CC0. Full attribution and local file details are in ASSETS.md.
+
+### Local verification
+
+1. Preserve each model directory and its relative glTF/BIN/image dependencies.
 2. Install a supported Node release satisfying Node 22.18+ for the native TypeScript test runner. Run `npm ci`, `npm run check`, `npm test`, and `npm run build`.
 3. Run `npm run preview` and verify activation, real falling stones, Reset, both quality modes and resizing.
-4. Create a GitHub repository. From this project directory initialize Git if needed, review the files, commit and push to the repository you own. Commit package-lock.json, public assets, source and documentation; keep node_modules and dist ignored. No push was performed by this implementation.
+4. Review any subsequent changes in the existing checkout. Commit and push only when authorized. Keep package-lock.json, public assets, source and documentation tracked, with node_modules and dist ignored. The focused App fixture uses the Node built-in experimental module-mocking flag supplied by `npm test`; no testing framework is installed.
 
 ## Import into Vercel
 
-1. In your Vercel account, choose Add New Project and import that GitHub repository.
+1. In your Vercel account, choose Add New Project and import `100kgtrotila/the-forgotten-chapel`.
 2. Set Root Directory to the directory containing this package.json (the repository root if this project is its own repository).
 3. Select the Vite framework preset. Build command: `npm run build`. Output directory: `dist`. Install command: `npm ci` (or Vercel's npm lockfile default).
 4. Select a supported Node version meeting the requirement above. No environment variables are required.
@@ -20,7 +30,8 @@ The project is prepared for static Vite hosting. No deployment has been publishe
 ## Verify the deployed site
 
 - Reload the HTTPS URL with an empty browser cache. Check console and network for missing files and errors.
-- Confirm `textures/stone-color.webp`, `stone-normal.webp`, `stone-arm.webp` and favicon resolve, and real GLB files resolve if added. A 200 response containing an HTML fallback is not a valid model.
+- Confirm `textures/stone-color.webp`, `stone-normal.webp`, `stone-arm.webp` and favicon resolve, and both `models/lucy_angel/lucy_angel.gltf` and `models/large_iron_gate/large_iron_gate.gltf` plus their BIN/image dependencies resolve. A 200 response containing an HTML fallback is not a valid model.
+- Wait for `#app[data-assets="ready"]`. Inspect `data-loaded-models`, `data-failed-models`, `data-skipped-model-slots`, `data-missing-resources` and `data-missing-optional-textures` as JSON arrays. A failed configured model must report `degraded` and retain its fallback. Slots with no model path are intentionally procedural. Optional texture failures retain material fallbacks. Initialization failures report `error`.
 - Confirm the separate PhysicsWorld JavaScript chunk loads, embedded WebAssembly initialization finishes and Activate becomes enabled. The compat package embeds WASM; it does not require a separate .wasm URL.
 - Inspect the procedural seal for WebGL shader errors. Activate, observe falling/colliding stones, Reset during activation, and repeat full cycles.
 - Toggle High/Low and resize the viewport. Check that the seal, controls and physics remain functional and the scene has no overexposed glow.

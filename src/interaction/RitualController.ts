@@ -29,6 +29,7 @@ export class RitualController {
   private transitionTime = 0
   private effectTime = 0
   private orbitAngle = 0
+  private readonly stoneGeometry = new THREE.IcosahedronGeometry(0.14, 0)
   private disposed = false
 
   constructor(options: RitualOptions) {
@@ -38,9 +39,8 @@ export class RitualController {
     this.baseScale = options.artifact.scale.clone()
     this.effects = new RitualEffects(this.basePosition)
     this.group.name = 'Ritual stones'
-    const geometry = new THREE.IcosahedronGeometry(0.14, 0)
     for (let index = 0; index < STONE_COUNT; index++) {
-      const mesh = new THREE.Mesh(geometry, options.stoneMaterial)
+      const mesh = new THREE.Mesh(this.stoneGeometry, options.stoneMaterial)
       mesh.name = `Ritual stone ${index + 1}`
       const scale = 0.86 + (index % 3) * 0.12
       mesh.scale.setScalar(scale)
@@ -150,6 +150,8 @@ export class RitualController {
     if (this.disposed) return
     this.options.physics.dispose()
     this.effects.dispose()
+    this.group.removeFromParent()
+    this.stoneGeometry.dispose()
     this.disposed = true
   }
 }
@@ -181,49 +183,54 @@ export function bindRitualInteraction(options: InteractionOptions): () => void {
     return true
   }
 
-  options.canvas.addEventListener('pointerdown', (event) => {
-    pointers.add(event.pointerId)
-    candidate = pointers.size === 1 && event.isPrimary && event.button === 0
-      ? { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false } : null
-  }, { signal: listeners.signal })
+  try {
+    options.canvas.addEventListener('pointerdown', (event) => {
+      pointers.add(event.pointerId)
+      candidate = pointers.size === 1 && event.isPrimary && event.button === 0
+        ? { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false } : null
+    }, { signal: listeners.signal })
 
-  options.canvas.addEventListener('pointermove', (event) => {
-    if (!candidate || candidate.id !== event.pointerId) return
-    if (Math.hypot(event.clientX - candidate.x, event.clientY - candidate.y) > 6) candidate.moved = true
-  }, { signal: listeners.signal })
+    options.canvas.addEventListener('pointermove', (event) => {
+      if (!candidate || candidate.id !== event.pointerId) return
+      if (Math.hypot(event.clientX - candidate.x, event.clientY - candidate.y) > 6) candidate.moved = true
+    }, { signal: listeners.signal })
 
-  options.canvas.addEventListener('pointercancel', (event) => {
-    pointers.delete(event.pointerId)
-    candidate = null
-  }, { signal: listeners.signal })
+    options.canvas.addEventListener('pointercancel', (event) => {
+      pointers.delete(event.pointerId)
+      candidate = null
+    }, { signal: listeners.signal })
 
-  options.canvas.addEventListener('pointerup', (event) => {
-    pointers.delete(event.pointerId)
-    const gesture = candidate
-    candidate = null
-    if (!gesture || gesture.id !== event.pointerId || gesture.moved || pointers.size > 0
-      || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6) return
-    const bounds = options.canvas.getBoundingClientRect()
-    if (bounds.width <= 0 || bounds.height <= 0 || event.clientX < bounds.left || event.clientY < bounds.top
-      || event.clientX > bounds.left + bounds.width || event.clientY > bounds.top + bounds.height) return
-    pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1)
-    options.camera.updateMatrixWorld()
-    options.scene.updateWorldMatrix(true, true)
-    raycaster.setFromCamera(pointer, options.camera)
-    hits.length = 0
-    raycaster.intersectObject(options.artifact, true, hits)
-    const artifactHit = hits.find((hit) => isVisible(hit.object))
-    if (!artifactHit) return
-    // A visible foreground mesh must not allow clicks through to the artifact behind it.
-    raycaster.far = Math.max(0, artifactHit.distance - 0.0001)
-    hits.length = 0
-    raycaster.intersectObject(options.scene, true, hits)
-    raycaster.far = Infinity
-    const blocked = hits.some((hit) => isVisible(hit.object))
-    if (!blocked) options.activate()
-  }, { signal: listeners.signal })
+    options.canvas.addEventListener('pointerup', (event) => {
+      pointers.delete(event.pointerId)
+      const gesture = candidate
+      candidate = null
+      if (!gesture || gesture.id !== event.pointerId || gesture.moved || pointers.size > 0
+        || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6) return
+      const bounds = options.canvas.getBoundingClientRect()
+      if (bounds.width <= 0 || bounds.height <= 0 || event.clientX < bounds.left || event.clientY < bounds.top
+        || event.clientX > bounds.left + bounds.width || event.clientY > bounds.top + bounds.height) return
+      pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1)
+      options.camera.updateMatrixWorld()
+      options.scene.updateWorldMatrix(true, true)
+      raycaster.setFromCamera(pointer, options.camera)
+      hits.length = 0
+      raycaster.intersectObject(options.artifact, true, hits)
+      const artifactHit = hits.find((hit) => isVisible(hit.object))
+      if (!artifactHit) return
+      // A visible foreground mesh must not allow clicks through to the artifact behind it.
+      raycaster.far = Math.max(0, artifactHit.distance - 0.0001)
+      hits.length = 0
+      raycaster.intersectObject(options.scene, true, hits)
+      raycaster.far = Infinity
+      const blocked = hits.some((hit) => isVisible(hit.object))
+      if (!blocked) options.activate()
+    }, { signal: listeners.signal })
 
-  options.activateButton.addEventListener('click', () => { options.activate() }, { signal: listeners.signal })
-  options.resetButton.addEventListener('click', () => { options.reset() }, { signal: listeners.signal })
+    options.activateButton.addEventListener('click', () => { options.activate() }, { signal: listeners.signal })
+    options.resetButton.addEventListener('click', () => { options.reset() }, { signal: listeners.signal })
+  } catch (error) {
+    listeners.abort()
+    throw error
+  }
   return () => listeners.abort()
 }

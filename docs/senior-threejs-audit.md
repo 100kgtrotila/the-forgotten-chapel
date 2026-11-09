@@ -238,3 +238,37 @@ Repository public не дорівнює public hosting. Вимога публі�
 **VISUAL AND PERFORMANCE VALIDATION: PARTIALLY VERIFIED** — поточні browser visuals/ресурсні лічильники перевірені, фізичний RTX 4060 benchmark/full heap profile не виконані.
 
 **DEPLOYMENT: READY TO DEPLOY** — для контрольованого безкоштовного навчального hosting із зазначеними caveats; не DEPLOYED AND VERIFIED.
+
+## Post-audit addendum — 9 листопада 2026 року
+
+Перевірено локальні зміни поверх `e510dd76f00038623fbd7629199179df98989f67`. Секції вище зберігають результати аудиту від 8 листопада та його baseline.
+
+| Знахідка | Поточний результат |
+| --- | --- |
+| F01 | Регресійні тести FrameClock проходять для 10/30/60/144 FPS, foreground stall і visibility pause/resume. |
+| F02 | Виправлено. Loader повертає loaded/failed IDs окремих слотів, skipped procedural slots та missing paths. IDs містять індекс, тому два ангели мають різні ID. App відображає loading/ready/degraded/error і JSON-масиви в dataset. Помилки optional textures записуються окремо та зберігають матеріальні fallback. |
+| F03 | Відтворено збій через fault injection у реєстрацію Reset. До виправлення RitualController.dispose не викликався. Додано rollback створеного controller та його груп, abort частково зареєстрованих interaction listeners, явне володіння stone geometry. Shared stone material звільняє App. Перевірено одноразове звільнення attached assets при пізньому завершенні іншого запиту. |
+| F03, remount | Тест відтворив застарілий напис Quality Low після створення нового App з High. Ініціалізація синхронізує кнопку та очищає попередню діагностику. |
+| F04 | DEPLOYMENT.md описує наявний опублікований repository, окремий static hosting, реальні glTF/BIN/image файли та Stanford terms для Lucy. Gate і stone textures мають CC0. |
+
+### Файли
+
+- `src/scene/assets.ts`, `src/scene/materials.ts` — structured outcomes та cleanup завантажених ресурсів.
+- `src/core/App.ts`, `src/interaction/RitualController.ts` — readiness, rollback, teardown та remount.
+- `src/main.ts`, `index.html`, `src/styles.css` — статус завантаження та повідомлення про degraded/error.
+- `tests/app.test.ts`, `tests/assets.test.ts`, `tests/materials.test.ts`, `package.json` — сім App fixture tests, два asset regressions і один texture ownership regression, вбудований Node module mocking.
+- `DEPLOYMENT.md`, цей addendum — актуальні інструкції та результати перевірки.
+
+### Виконана перевірка
+
+- `npm run check` — PASS.
+- `npm test` — PASS, 43/43. Нові App fixtures виконують справжній App, RitualController, model і material loaders. WebGLRenderer, OrbitControls, composer wrapper, ResizeObserver, seal та асинхронний WASM boundary підмінено вузькими fixtures. Наявні physics/timing tests використовують справжній Rapier.
+- Покрито dispose під час очікування PhysicsWorld.create, late asset completion, physics rejection після створення сцени, partial interaction binding failure, повторний dispose, shared material ownership, remount, відсутність активного loop після teardown та дубльованих button listeners.
+- `npm run build` — PASS. Основний JS 731.44 kB / 186.29 kB gzip, physics chunk 4334.39 kB / 1670.06 kB gzip. Попередження Vite про великі chunks залишається.
+- Вбудований браузер, dev `127.0.0.1:5173` та production preview `127.0.0.1:4173` — ready, три імпортовані instances, порожні failed/missing arrays; activation → released → Reset і High/Low працюють. Production Hide/Show UI працює. Після зміни source через Vite спостерігався один canvas і відновлений idle. Console warn/error порожня в обох режимах. Screenshot збережено поза repository у `D:/Projects/.tmp/chapel-audit/f02-f04-preview.png`.
+
+### Межі перевірки та готовність
+
+Fault injection моделей, текстур і partial binding виконано у Node fixtures. Перевірка GPU/composer teardown підтверджує виклики cleanup API через підміни. Повний GPU/heap leak profile, матриця реальних пристроїв та production HTTPS smoke test залишаються неперевіреними. `npm test` використовує experimental module-mocking API Node; прогін виконано на Node 26.8.1.
+
+Локальна версія готова до контрольованого навчального static deployment із наведеними обмеженнями. Публічний HTTPS deployment залишається окремим етапом. Зміни цього addendum та відповідні виправлення підготовлено локально.

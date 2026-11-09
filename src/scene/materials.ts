@@ -41,7 +41,7 @@ export interface ChapelMaterials {
 export function createChapelMaterials(
   signal: AbortSignal,
   config: TextureAssets = TEXTURE_ASSETS,
-): { materials: ChapelMaterials; ready: Promise<void> } {
+): { materials: ChapelMaterials; ready: Promise<{ missingOptionalTextures: string[] }> } {
   const stone = (color: string) => new THREE.MeshStandardMaterial({
     color, roughness: 0.91, normalScale: new THREE.Vector2(0.35, 0.35), aoMapIntensity: 0.35,
   })
@@ -65,6 +65,8 @@ export function createChapelMaterials(
 
   const loader = new THREE.TextureLoader()
   const cache = new Map<string, Promise<THREE.Texture>>()
+  const missingOptionalTextures = new Set<string>()
+  const attachedTextures = new Set<THREE.Texture>()
   const loadedTextures = new Set<THREE.Texture>()
   const textureTint = new THREE.Color('#ffffff')
   const families: Array<{ targets: THREE.MeshStandardMaterial[]; textures: TextureSet }> = [
@@ -99,12 +101,14 @@ export function createChapelMaterials(
       }
       const texture = await request
       if (signal.aborted) return
+      attachedTextures.add(texture)
       for (const target of targets) {
         target[property] = texture
         if (property === 'map') target.color.lerp(textureTint, 0.78)
         target.needsUpdate = true
       }
     } catch (error) {
+      if (!signal.aborted) missingOptionalTextures.add(path)
       if (!signal.aborted) console.warn(`Keeping material fallback for ${path}`, error)
     }
   }
@@ -118,7 +122,10 @@ export function createChapelMaterials(
       applyMap(targets, 'aoMap', textures.ao, repeat),
     ]
   })).then(() => {
-    if (signal.aborted) loadedTextures.forEach((texture) => texture.dispose())
+    if (signal.aborted) loadedTextures.forEach((texture) => {
+      if (!attachedTextures.has(texture)) texture.dispose()
+    })
+    return { missingOptionalTextures: [...missingOptionalTextures] }
   })
 
   return { materials, ready }

@@ -112,3 +112,6 @@ h1 span { font-size: 37px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto; transition: none !important; }
 }
+
+#asset-status { font-size: 0.75rem; color: #b9ac91; }
+#asset-status:empty { display: none; }

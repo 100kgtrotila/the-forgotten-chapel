@@ -1,20 +1,21 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { createChapel } from '../scene/createChapel'
-import type { ChapelScene } from '../scene/createChapel'
-import { CANDLE_BASE_INTENSITY, createLighting } from '../scene/createLighting'
-import { disposeObjectResources, loadModelSlots } from '../scene/assets'
-import { createChapelMaterials } from '../scene/materials'
-import { MagicSeal } from '../effects/MagicSeal'
-import { RitualController, bindRitualInteraction } from '../interaction/RitualController'
-import type { RitualState } from '../interaction/RitualController'
-import { RenderingPipeline } from './RenderingPipeline'
-import type { Quality } from './RenderingPipeline'
+import { createChapel } from '../scene/createChapel.ts'
+import type { ChapelScene } from '../scene/createChapel.ts'
+import { CANDLE_BASE_INTENSITY, createLighting } from '../scene/createLighting.ts'
+import { disposeObjectResources, loadModelSlots } from '../scene/assets.ts'
+import { createChapelMaterials } from '../scene/materials.ts'
+import { MagicSeal } from '../effects/MagicSeal.ts'
+import { RitualController, bindRitualInteraction } from '../interaction/RitualController.ts'
+import type { RitualState } from '../interaction/RitualController.ts'
+import { RenderingPipeline } from './RenderingPipeline.ts'
+import type { Quality } from './RenderingPipeline.ts'
 import { FrameClock } from './FrameClock.ts'
 
 interface RitualUi {
   activateButton: HTMLButtonElement
   resetButton: HTMLButtonElement
+  assetStatus: HTMLElement
   status: HTMLElement
   qualityButton: HTMLButtonElement
   menu: HTMLElement
@@ -46,7 +47,12 @@ export class App {
   private framingDistance: number | null = null
   private elapsed = 0
 
-  constructor(private readonly container: HTMLElement, private readonly ritualUi: RitualUi) {
+  private readonly container: HTMLElement
+  private readonly ritualUi: RitualUi
+
+  constructor(container: HTMLElement, ritualUi: RitualUi) {
+    this.container = container
+    this.ritualUi = ritualUi
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color('#0b1019')
     this.scene.fog = new THREE.FogExp2('#101722', 0.025)
@@ -106,49 +112,78 @@ export class App {
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(this.container)
     this.resize()
+    for (const key of ['loadedModels', 'failedModels', 'skippedModelSlots', 'missingResources', 'missingOptionalTextures', 'initializationError', 'ritualState']) {
+      delete this.container.dataset[key]
+    }
+    this.ritualUi.activateButton.disabled = true
+    this.ritualUi.resetButton.disabled = true
+    this.ritualUi.qualityButton.textContent = 'Quality: High'
+    this.ritualUi.qualityButton.setAttribute('aria-pressed', 'false')
+    this.ritualUi.status.textContent = 'Preparing ritual…'
+    this.ritualUi.assetStatus.textContent = 'Loading chapel assets…'
+    this.container.dataset.assets = 'loading'
     this.renderer.setAnimationLoop(this.animate)
     void this.initializeRitual(chapel, materialSetup.materials.oldStone).catch((error: unknown) => {
       if (this.assetLoading.signal.aborted) return
+      this.container.dataset.assets = 'error'
+      this.container.dataset.initializationError = 'ritual'
+      this.ritualUi.assetStatus.textContent = 'Chapel initialization failed.'
       this.ritualUi.activateButton.disabled = true
       this.ritualUi.resetButton.disabled = true
       this.ritualUi.status.textContent = 'The ritual could not initialize. Reload to try again.'
       console.error('Unable to initialize ritual physics', error)
     })
-    this.container.dataset.assets = 'loading'
     void Promise.all([
       materialSetup.ready,
       loadModelSlots(chapel.modelSlots, this.assetLoading.signal),
-    ]).then(() => {
-      if (!this.assetLoading.signal.aborted) this.container.dataset.assets = 'ready'
+    ]).then(([textures, models]) => {
+      if (this.assetLoading.signal.aborted) return
+      this.container.dataset.loadedModels = JSON.stringify(models.loadedModelIds)
+      this.container.dataset.failedModels = JSON.stringify(models.failedModelIds)
+      this.container.dataset.skippedModelSlots = JSON.stringify(models.skippedOptionalSlots)
+      this.container.dataset.missingResources = JSON.stringify(models.missingResources)
+      this.container.dataset.missingOptionalTextures = JSON.stringify(textures.missingOptionalTextures)
+      if (this.container.dataset.assets !== 'error') {
+        this.container.dataset.assets = models.failedModelIds.length ? 'degraded' : 'ready'
+        this.ritualUi.assetStatus.textContent = models.failedModelIds.length
+          ? 'Some chapel models could not load. Reload to retry.' : ''
+      }
     }).catch((error: unknown) => {
-      if (!this.assetLoading.signal.aborted) console.warn('Chapel assets could not finish loading', error)
+      if (this.assetLoading.signal.aborted) return
+      this.container.dataset.assets = 'error'
+      this.container.dataset.initializationError = 'assets'
+      this.ritualUi.assetStatus.textContent = 'Chapel assets could not initialize. Reload to retry.'
+      console.error('Chapel assets could not finish loading', error)
     })
   }
 
   private async initializeRitual(chapel: ChapelScene, stoneMaterial: THREE.Material): Promise<void> {
-    const { PhysicsWorld } = await import('../physics/PhysicsWorld')
+    const { PhysicsWorld } = await import('../physics/PhysicsWorld.ts')
     if (this.assetLoading.signal.aborted) return
     const physics = await PhysicsWorld.create(chapel.colliders)
     if (this.assetLoading.signal.aborted) {
       physics.dispose()
       return
     }
+    let ritual: RitualController | null = null
     try {
       this.artifact.position.y = this.artifactBaseHeight
       this.artifact.rotation.y = 0
-      const ritual = new RitualController({
+      const controller = new RitualController({
         artifact: this.artifact, stoneMaterial, seal: this.magicSeal, physics,
         onStateChange: (state) => this.updateRitualUi(state),
       })
-      this.ritual = ritual
-      this.scene.add(ritual.group, ritual.effects.group)
+      ritual = controller
+      this.scene.add(controller.group, controller.effects.group)
       this.unbindRitual = bindRitualInteraction({
         canvas: this.renderer.domElement, camera: this.camera, artifact: this.artifact, scene: this.scene,
         activateButton: this.ritualUi.activateButton, resetButton: this.ritualUi.resetButton,
-        activate: () => ritual.activate(), reset: () => ritual.reset(),
+        activate: () => controller.activate(), reset: () => controller.reset(),
       })
+      this.ritual = controller
     } catch (error) {
-      physics.dispose()
+      if (ritual) ritual.dispose()
+      else physics.dispose()
       throw error
     }
   }

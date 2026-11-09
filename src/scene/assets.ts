@@ -49,15 +49,24 @@ export function createModelInstance(source: THREE.Group, asset: ModelAsset): THR
   return instance
 }
 
-export async function loadModelSlots(slots: ModelSlot[], signal: AbortSignal): Promise<void> {
+export interface ModelLoadingOutcome {
+  loadedModelIds: string[]
+  failedModelIds: string[]
+  skippedOptionalSlots: string[]
+  missingResources: string[]
+}
+
+export async function loadModelSlots(slots: ModelSlot[], signal: AbortSignal): Promise<ModelLoadingOutcome> {
   const loader = new GLTFLoader()
   const cache = new Map<string, Promise<THREE.Group>>()
   const sources = new Set<THREE.Group>()
   const usedSources = new Set<THREE.Group>()
 
-  await Promise.all(slots.map(async (slot) => {
+  const results = await Promise.all(slots.map(async (slot, index) => {
+    const id = slot.container.name ? `${slot.container.name} #${index + 1}` : `model-slot-${index + 1}`
     const path = slot.asset.path
-    if (!path || signal.aborted) return
+    if (!path) return { id, path, status: 'skipped' }
+    if (signal.aborted) return { id, path, status: 'aborted' }
     try {
       const key = `${path}:${slot.asset.surface ?? 'original'}`
       let request = cache.get(key)
@@ -84,18 +93,28 @@ export async function loadModelSlots(slots: ModelSlot[], signal: AbortSignal): P
         cache.set(key, request)
       }
       const source = await request
-      if (signal.aborted) return
+      if (signal.aborted) return { id, path, status: 'aborted' }
       const instance = createModelInstance(source, slot.asset)
       slot.container.add(instance)
       slot.fallback.visible = false
       usedSources.add(source)
+      return { id, path, status: 'loaded' }
     } catch (error) {
       if (!signal.aborted) console.warn(`Keeping procedural fallback for ${path}`, error)
+      return { id, path, status: signal.aborted ? 'aborted' : 'failed' }
     }
   }))
 
   for (const source of sources) {
-    if (signal.aborted || !usedSources.has(source)) disposeObjectResources(source)
+    // Attached sources belong to App, including when it was disposed during this batch.
+    if (!usedSources.has(source)) disposeObjectResources(source)
+  }
+  return {
+    loadedModelIds: results.filter((result) => result.status === 'loaded').map((result) => result.id),
+    failedModelIds: results.filter((result) => result.status === 'failed').map((result) => result.id),
+    skippedOptionalSlots: results.filter((result) => result.status === 'skipped').map((result) => result.id),
+    missingResources: [...new Set(results.filter((result) => result.status === 'failed')
+      .flatMap((result) => result.path ? [result.path] : []))],
   }
 }
 

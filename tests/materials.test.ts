@@ -66,3 +66,27 @@ test('textures arriving after teardown are disposed instead of attached to mater
   assert.equal(materials.oldStone.map, null)
   assert.equal(disposed, true)
 })
+
+test('a late texture does not dispose an earlier map already freed by the scene owner twice', async (context) => {
+  let finish: (texture: THREE.Texture) => void = () => { throw new Error('Not started') }
+  const pending = new Promise<THREE.Texture>((resolve) => { finish = resolve })
+  const color = new THREE.Texture()
+  context.mock.method(THREE.TextureLoader.prototype, 'loadAsync', async (url: string) => {
+    return url.includes('normal') ? pending : color
+  })
+  const controller = new AbortController()
+  const setup = createChapelMaterials(controller.signal, {
+    stone: { color: 'color.webp', normal: 'normal.webp' }, floor: {}, metal: {},
+  })
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  assert.equal(setup.materials.oldStone.map, color)
+  const dispose = context.mock.method(color, 'dispose')
+  controller.abort()
+  color.dispose() // App's deduplicated scene cleanup owns the attached map.
+  const normal = new THREE.Texture()
+  const lateDispose = context.mock.method(normal, 'dispose')
+  finish(normal)
+  await setup.ready
+  assert.equal(dispose.mock.callCount(), 1)
+  assert.equal(lateDispose.mock.callCount(), 1)
+})
