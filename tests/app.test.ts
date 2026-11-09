@@ -15,7 +15,8 @@ class Element extends EventTarget {
   children: Element[] = []
   removed = false
   failBinding = false
-  setAttribute() {}
+  attributes = new Map<string, string>()
+  setAttribute(name: string, value: string) { this.attributes.set(name, value) }
   append(child: Element) { this.children.push(child) }
   remove() { this.removed = true }
   override addEventListener(...args: Parameters<EventTarget['addEventListener']>) {
@@ -30,24 +31,34 @@ class Renderer {
   info = { autoReset: true, reset() {} }
   loop: ((time: number) => void) | null = null
   disposals = 0
+  pixelRatio = 1
+  width = 0
+  height = 0
   constructor() { Renderer.instances.push(this) }
   setAnimationLoop(loop: Renderer['loop']) { this.loop = loop }
-  setPixelRatio() {}
-  setSize() {}
+  setPixelRatio(value: number) { this.pixelRatio = value }
+  setSize(width: number, height: number) { this.width = width; this.height = height }
   dispose() { this.disposals++ }
 }
 class Controls {
   static instances: Controls[] = []
+  readonly camera: THREE.PerspectiveCamera
   target = new THREE.Vector3()
+  minDistance = 0
+  maxDistance = 0
+  minPolarAngle = 0
+  maxPolarAngle = 0
+  dampingFactor = 0
   disposals = 0
-  constructor() { Controls.instances.push(this) }
+  constructor(camera: THREE.PerspectiveCamera) { this.camera = camera; Controls.instances.push(this) }
   update() {}
   dispose() { this.disposals++ }
 }
 class Observer {
   static instances: Observer[] = []
   disconnects = 0
-  constructor() { Observer.instances.push(this) }
+  readonly notify: () => void
+  constructor(notify: () => void) { this.notify = notify; Observer.instances.push(this) }
   observe() {}
   disconnect() { this.disconnects++ }
 }
@@ -178,6 +189,7 @@ test('App binding failure rolls back ritual groups, listeners and owned resource
   assert.equal(physics.disposals, 1)
   assert.equal(materialDispose.mock.callCount(), 0)
   assert.equal(f.container.dataset.assets, 'error')
+  assert.equal(f.ui.assetStatus.textContent, 'Chapel initialization failed.')
   const state = f.container.dataset.ritualState
   f.ui.activateButton.dispatchEvent(new Event('click'))
   assert.equal(f.container.dataset.ritualState, state)
@@ -213,6 +225,7 @@ test('App reports degraded for a failed configured model', async (context) => {
   physicsRequest.resolve(new Physics())
   await flush()
   assert.equal(f.container.dataset.assets, 'degraded')
+  assert.equal(f.ui.assetStatus.textContent, 'Some chapel models could not load. Reload to retry.')
   assert.equal(slot.fallback.visible, true)
 })
 
@@ -238,6 +251,7 @@ test('App teardown and remount leave one loop and one set of button listeners', 
   physicsRequest.resolve(new Physics())
   await flush()
   assert.equal(f.ui.qualityButton.textContent, 'Quality: High')
+  assert.equal(f.ui.qualityButton.attributes.get('aria-pressed'), 'false')
   assert.equal(Renderer.instances.filter((renderer) => renderer.loop !== null).length, 1)
   const activate = context.mock.method(RitualController.prototype, 'activate')
   f.ui.activateButton.dispatchEvent(new Event('click'))
@@ -249,4 +263,69 @@ test('App teardown and remount leave one loop and one set of button listeners', 
   assert.equal(Renderer.instances.filter((renderer) => renderer.loop !== null).length, 0)
   assert.ok(Observer.instances.every((observer) => observer.disconnects === 1))
   assert.ok(Pipeline.instances.every((pipeline) => pipeline.disposals === 1))
+})
+
+test('extracted UI toggles the menu, updates quality and removes its listeners on teardown', async (context) => {
+  const f = fixture(context)
+  physicsRequest.resolve(new Physics())
+  await flush()
+  f.ui.menuToggle.dispatchEvent(new Event('click'))
+  assert.equal(f.ui.menu.hidden, true)
+  assert.equal(f.ui.menuToggle.textContent, 'Show UI')
+  assert.equal(f.ui.menuToggle.attributes.get('aria-expanded'), 'false')
+  f.ui.menuToggle.dispatchEvent(new Event('click'))
+  assert.equal(f.ui.menu.hidden, false)
+  assert.equal(f.ui.menuToggle.textContent, 'Hide UI')
+  assert.equal(f.ui.menuToggle.attributes.get('aria-expanded'), 'true')
+  f.ui.qualityButton.dispatchEvent(new Event('click'))
+  assert.equal(f.ui.qualityButton.textContent, 'Quality: Low')
+  assert.equal(f.ui.qualityButton.attributes.get('aria-pressed'), 'true')
+  assert.equal(f.pipeline.changes, 1)
+  f.app.dispose()
+  f.ui.menuToggle.dispatchEvent(new Event('click'))
+  f.ui.qualityButton.dispatchEvent(new Event('click'))
+  assert.equal(f.ui.menu.hidden, false)
+  assert.equal(f.pipeline.changes, 1)
+})
+
+test('scene configuration preserves the camera, fog and orbit limits', async (context) => {
+  const f = fixture(context)
+  assert.equal(f.controls.camera.fov, 45)
+  assert.equal(f.controls.camera.near, 0.1)
+  assert.equal(f.controls.camera.far, 90)
+  assert.deepEqual(f.controls.target.toArray(), [0, 2.1, -0.6])
+  assert.equal(f.controls.minDistance, 6)
+  assert.equal(f.controls.maxDistance, 36)
+  assert.equal(f.controls.minPolarAngle, 0.12)
+  assert.equal(f.controls.maxPolarAngle, Math.PI * 0.49)
+  assert.equal(f.controls.dampingFactor, 0.06)
+  assert.ok(scene.background instanceof THREE.Color)
+  assert.equal(scene.background.getHexString(), '0b1019')
+  assert.ok(scene.fog instanceof THREE.FogExp2)
+  assert.equal(scene.fog.color.getHexString(), '101722')
+  assert.equal(scene.fog.density, 0.025)
+  physicsRequest.resolve(new Physics())
+  await flush()
+})
+
+test('extracted viewport resizes the camera and applies quality pixel ratios and shadows', async (context) => {
+  const f = fixture(context)
+  physicsRequest.resolve(new Physics())
+  await flush()
+  Object.assign(window, { devicePixelRatio: 3 })
+  f.container.clientWidth = 1200
+  f.container.clientHeight = 600
+  f.observer.notify()
+  assert.equal(f.controls.camera.aspect, 2)
+  assert.equal(f.renderer.width, 1200)
+  assert.equal(f.renderer.height, 600)
+  assert.equal(f.renderer.pixelRatio, 1.5)
+  const moon = new THREE.DirectionalLight()
+  scene.add(moon)
+  f.ui.qualityButton.dispatchEvent(new Event('click'))
+  assert.equal(f.renderer.pixelRatio, 1)
+  assert.equal(moon.shadow.mapSize.x, 512)
+  f.ui.qualityButton.dispatchEvent(new Event('click'))
+  assert.equal(f.renderer.pixelRatio, 1.5)
+  assert.equal(moon.shadow.mapSize.x, 1024)
 })
