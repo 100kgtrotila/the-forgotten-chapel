@@ -152,7 +152,7 @@ export function createChapel(materials: ChapelMaterials): ChapelScene {
     group.add(stone)
   }
 
-  // Only surfaces involved in the ritual receive physics colliders, not the imported architecture.
+  // Static proxies cover the ritual surfaces and the closed rear gate.
   group.updateMatrixWorld(true)
   const colliderFor = (meshes: THREE.Mesh[]): StaticCollider => {
     const bounds = new THREE.Box3()
@@ -166,6 +166,7 @@ export function createChapel(materials: ChapelMaterials): ChapelScene {
     colliderFor(platformMeshes),
     ...stairs.map((mesh) => colliderFor([mesh])),
     ...altarSections.map((mesh) => colliderFor([mesh])),
+    ...architecture.colliders,
   ]
   const altarBounds = new THREE.Box3().setFromObject(altar)
   const altarSurface = altarBounds.getCenter(new THREE.Vector3())

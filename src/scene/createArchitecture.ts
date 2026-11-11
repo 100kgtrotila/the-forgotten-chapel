@@ -1,12 +1,14 @@
 import * as THREE from 'three'
-import { MODEL_ASSETS } from './assets'
+import { MODEL_ASSETS } from './assets.ts'
 import type { ModelAsset, ModelSlot } from './assets'
 import type { ChapelMaterials } from './materials'
+import type { StaticCollider } from '../physics/PhysicsWorld'
 
 export function createArchitecture(materials: ChapelMaterials, deckHeight: number): {
   group: THREE.Group
   modelSlots: ModelSlot[]
   candleSupports: THREE.Vector3[]
+  colliders: StaticCollider[]
 } {
   const group = new THREE.Group()
   group.name = 'Ruined chapel architecture'
@@ -83,10 +85,18 @@ export function createArchitecture(materials: ChapelMaterials, deckHeight: numbe
   }
 
   const rearZ = -3.72
+  const thresholdHeight = 0.2
   const rear = slot('Rear pointed arch', MODEL_ASSETS.rearArch, [0, deckHeight, rearZ])
-  const threshold = block(group, [3.5, 0.2, 0.8], [0, deckHeight + 0.1, rearZ], materials.carvedStone)
+  const threshold = block(group, [3.5, thresholdHeight, 0.8], [0, deckHeight + thresholdHeight / 2, rearZ], materials.carvedStone)
   threshold.name = 'Rear gate threshold'
-  slot('Rear chapel gate', MODEL_ASSETS.gate, [0, deckHeight + 0.2, rearZ])
+  slot('Rear chapel gate', MODEL_ASSETS.gate, [0, deckHeight + thresholdHeight, rearZ])
+  // The normalized gate is about 3.75 units wide. A solid proxy covers its bars
+  // and the gap below the raised model, so rolling fragments cannot pass under it.
+  const gateHalfHeight = (MODEL_ASSETS.gate.height + thresholdHeight) / 2
+  const colliders: StaticCollider[] = [{
+    center: [0, deckHeight + gateHalfHeight, rearZ],
+    halfExtents: [3.75 / 2, gateHalfHeight, 0.12 / 2],
+  }]
   pier(rear, -2.22, 3.15)
   pier(rear, 2.22, 3.15)
   const rearArch = new THREE.Mesh(arch(2.36, 2.85, 0.28), materials.oldStone)
@@ -166,5 +176,5 @@ export function createArchitecture(materials: ChapelMaterials, deckHeight: numbe
     }
   }
 
-  return { group, modelSlots, candleSupports }
+  return { group, modelSlots, candleSupports, colliders }
 }
