@@ -1,11 +1,11 @@
-:root {
-  font-family: Georgia, 'Times New Roman', serif;
-  color: #d6cdbb;
-  background: #0b1019;
-  font-synthesis: none;
-  color-scheme: dark;
+@font-face {
+  font-family: 'VT323';
+  src: url('/fonts/VT323-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
-
+:root { font-family: 'VT323', monospace; font-synthesis: none; color: #d2d1c6; background: #0b1019; color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; }
 body { min-width: 320px; overflow: hidden; }
@@ -15,103 +15,95 @@ body { min-width: 320px; overflow: hidden; }
 .interface {
   position: fixed;
   top: 28px;
-  left: 28px;
+  left: 24px;
   z-index: 1;
-  width: 296px;
-  max-width: calc(100vw - 40px);
+  width: 304px;
+  max-width: calc(100vw - 32px);
   max-height: calc(100dvh - 56px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
-
 .chapel-menu {
+  position: relative;
   width: 100%;
   min-height: 0;
   overflow-y: auto;
-  padding: 24px 22px 17px;
+  padding: 34px 20px 30px;
   pointer-events: auto;
-  border: 1px solid #665744;
-  outline: 1px solid #3b342a;
-  outline-offset: -5px;
-  background:
-    repeating-linear-gradient(7deg, transparent 0 3px, #aa8e6006 4px, transparent 5px 9px),
-    radial-gradient(ellipse at 50% 0, #332a20b8, transparent 70%),
-    linear-gradient(110deg, #161512f5, #0f1010f5 55%, #1b1915f5);
-  box-shadow: 0 10px 35px #0005, inset 0 0 28px #0006;
+  background: #090b0ce8;
   scrollbar-width: thin;
-  scrollbar-color: #665744 #141411;
+  scrollbar-color: #56574f #090b0c;
 }
-
-.chapel-menu__header { text-align: center; }
-.chapel-menu__sigil { width: 25px; height: 35px; stroke: #a58d63; stroke-width: 0.9; margin-bottom: 10px; }
-.chapel-menu__eyebrow {
-  margin: 0 0 13px;
-  font-size: 9px;
-  letter-spacing: 0.19em;
-  text-transform: uppercase;
-  color: #a99678;
+.chapel-menu::before, .chapel-menu::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 20px;
+  background: url('/menu-ornament.svg') center / 100% 20px no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
 }
-h1 { margin: 0; font-size: 28px; line-height: 1.12; font-weight: 400; letter-spacing: -0.025em; }
-h1 span { font-size: 37px; }
-.chapel-menu__subtitle { margin: 12px 0 0; font-size: 11px; font-style: italic; color: #a9a193; }
-.chapel-menu__rule { display: flex; align-items: center; gap: 10px; margin: 17px 0 13px; color: #9a825b; }
-.chapel-menu__rule::before, .chapel-menu__rule::after { content: ''; height: 1px; flex: 1; background: linear-gradient(90deg, transparent, #756245); }
-.chapel-menu__rule::after { transform: rotate(180deg); }
-.chapel-menu__rule span { font-size: 10px; }
-.chapel-menu__invitation { margin: 0 0 18px; color: #b5a68c; font-size: 12px; line-height: 1.6; text-align: center; font-style: italic; }
-.chapel-menu__instructions { margin: 0; font-size: 11px; line-height: 1.6; }
-.chapel-menu__instructions div { margin-top: 9px; }
-.chapel-menu__instructions dt { color: #bba985; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
-.chapel-menu__instructions dd { margin: 1px 0 0; color: #aaa69b; }
+.chapel-menu::before { top: 0; }
+.chapel-menu::after { bottom: 0; transform: rotate(180deg); }
+.chapel-menu__header { text-align: center; padding-bottom: 18px; }
+h1 { margin: 0; font-size: 30px; line-height: 0.95; font-weight: 400; text-transform: uppercase; letter-spacing: 0.035em; }
+h1 span { font-size: inherit; }
 
-.ritual-controls { margin-top: 20px; }
-.ritual-controls__buttons { display: flex; gap: 7px; margin-top: 7px; }
+.ritual-controls { margin-top: 14px; }
+.ritual-controls__buttons { display: flex; flex-direction: column; }
 .ritual-controls button, .menu-toggle {
-  min-height: 44px;
-  border: 1px solid #685b46;
+  position: relative;
+  min-height: 40px;
+  border: 0;
+  border-bottom: 1px solid #343730;
   border-radius: 0;
-  color: #cfc3ac;
-  background: linear-gradient(#302a20a6, #191815e6);
-  font: 12px Georgia, 'Times New Roman', serif;
-  letter-spacing: 0.035em;
+  color: #d0d0c4;
+  background: transparent;
+  font: 20px/1 'VT323', monospace;
   cursor: pointer;
-  transition: color 160ms, border-color 160ms, background-color 160ms;
+  text-shadow: 1px 1px #000;
 }
-.ritual-controls button { padding: 10px 8px; }
-.ritual-controls .ritual-controls__activate { width: 100%; box-shadow: inset 0 0 0 3px #141310; text-transform: uppercase; letter-spacing: 0.12em; }
-.ritual-controls__buttons button { flex: 1; font-size: 11px; }
-.ritual-controls button:hover:enabled, .menu-toggle:hover { color: #eee0c6; border-color: #ab9165; background-color: #655134; }
-.ritual-controls button:focus-visible, .menu-toggle:focus-visible { outline: 2px solid #d1b57f; outline-offset: 3px; }
-.ritual-controls button:disabled { opacity: 0.45; cursor: default; }
-#ritual-status { min-height: 30px; margin: 13px 0 0; color: #aaa295; font-size: 11px; line-height: 1.5; }
-.menu-toggle { flex-shrink: 0; padding: 8px 15px; min-width: 100px; pointer-events: auto; background-color: #161512; font-size: 11px; }
-.menu-toggle::before { content: '—'; margin-right: 8px; color: #aa9066; }
-#status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: #e8e2d7; }
+.ritual-controls button { width: 100%; padding: 8px 22px; }
+.ritual-controls .ritual-controls__activate { color: #d9cfac; border-top: 1px solid #4c4c3f; }
+.ritual-controls button:hover:enabled, .ritual-controls button:focus-visible, .menu-toggle:hover, .menu-toggle:focus-visible {
+  color: #eee5bf;
+  background: linear-gradient(90deg, transparent, #87704142 30%, #87704142 70%, transparent);
+  border-bottom-color: #8c805b;
+}
+.ritual-controls button:hover:enabled::before, .ritual-controls button:focus-visible::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: calc(50% - 4px);
+  border-left: 5px solid #c0aa71;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+.ritual-controls button:focus-visible, .menu-toggle:focus-visible { outline: 1px solid #b4a572; outline-offset: -2px; }
+.ritual-controls button:disabled { color: #63675f; cursor: default; }
+#ritual-status, #asset-status { margin: 14px 0 0; color: #9fa398; font-size: 17px; line-height: 1.1; }
+#ritual-status { min-height: 38px; }
+#asset-status { color: #c0ae7e; }
+#asset-status:empty { display: none; }
+.menu-toggle { flex-shrink: 0; min-width: 114px; padding: 8px 16px; pointer-events: auto; background: #090b0ce8; font-size: 18px; }
+.menu-toggle::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border: 1px solid #a6a38d; }
+.menu-toggle[aria-expanded='true']::before { background: #a6a38d; }
+#status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: #e8e2d7; font-size: 20px; }
 #status:empty { display: none; }
 
 @media (max-width: 700px), (max-height: 600px) {
-  .interface { top: 16px; left: 16px; width: 358px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); gap: 8px; }
-  .chapel-menu { padding: 16px 19px 12px; }
-  .chapel-menu__sigil { display: none; }
-  .chapel-menu__eyebrow { display: none; }
+  .interface { top: 12px; left: 12px; width: 280px; max-height: calc(100dvh - 24px); }
+  .chapel-menu { padding: 26px 16px 22px; }
+  .chapel-menu__header { padding-bottom: 12px; }
   h1 { font-size: 24px; }
-  h1 br { display: none; }
-  h1 span { font-size: inherit; }
-  .chapel-menu__subtitle { margin-top: 8px; }
-  .chapel-menu__rule { margin: 9px 0; }
-  .chapel-menu__invitation { display: none; }
-  .chapel-menu__instructions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px; }
-  .chapel-menu__instructions div { margin-top: 6px; }
-  .ritual-controls { margin-top: 14px; }
-  #ritual-status { margin-top: 10px; }
+  .ritual-controls { margin-top: 8px; }
+  .ritual-controls button { min-height: 36px; font-size: 19px; }
+  #ritual-status, #asset-status { margin-top: 10px; font-size: 16px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto; transition: none !important; }
 }
-
-#asset-status { font-size: 0.75rem; color: #b9ac91; }
-#asset-status:empty { display: none; }
